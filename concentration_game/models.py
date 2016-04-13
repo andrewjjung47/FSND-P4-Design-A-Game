@@ -17,19 +17,22 @@ class User(ndb.Model):
 
 class Game(ndb.Model):
     """Game object"""
-    pairs = ndb.ListProperty(item_type=int, required=True)
+    pairs = ndb.IntegerProperty(repeated=True)
+    num_pairs = ndb.IntegerProperty(required=True)
+    guessed_pairs = ndb.IntegerProperty(required=True, default=0)
     attempts_allowed = ndb.IntegerProperty(required=True)
-    attempts_remaining = ndb.IntegerProperty(required=True, default=5)
+    attempts_remaining = ndb.IntegerProperty(required=True)
     game_over = ndb.BooleanProperty(required=True, default=False)
     user = ndb.KeyProperty(required=True, kind='User')
 
     @classmethod
     def new_game(cls, user, num_pairs, attempts):
         """Creates and returns a new game"""
-        if num_pairs > 1:
+        if num_pairs < 2:
             raise ValueError('Number of the pairs should be greater than 1')
         game = Game(user=user,
                     pairs=generate_random_pairs(num_pairs),
+                    num_pairs=num_pairs,
                     attempts_allowed=attempts,
                     attempts_remaining=attempts,
                     game_over=False)
@@ -46,13 +49,43 @@ class Game(ndb.Model):
         form.message = message
         return form
 
+    def make_guess(self, guess1, guess2):
+        number1 = self.pairs[guess1] 
+        number2 = self.pairs[guess2]
+
+        if number1 == -1 or number2 == -1:
+            return self.to_form('These cards are already correctly guessed')
+        
+        self.attempts_remaining -= 1
+
+        if number1 != number2:
+            return self.to_form('Wrong guess. Number for card {0} is {1} and for card {2} is {3}'.format(guess1,
+                number1, guess2, number2))
+
+        # Mark correctly guessed pair with -1
+        self.guessed_pairs += 1
+        self.pairs[guess1] = -1
+        self.pairs[guess2] = -1
+
+        if self.guessed_pairs == self.num_pairs:
+            self.end_game(True)
+            msg = 'You correctly guessed all pairs in %s' % (self.attempts_allowed - self.attempts_remaining)
+        elif self.attempts_remaining == 0:
+            self.end_game(False)
+            msg = 'You ran out of guesses. Game over!'
+        else:
+            msg = 'Correct guess! You have %s pairs remaining.' % (self.num_pairs - self.guessed_pairs)
+
+        self.put()
+        return self.to_form(msg)
+
     def end_game(self, won=False):
         """Ends the game - if won is True, the player won. - if won is False,
         the player lost."""
         self.game_over = True
         self.put()
         # Add the game to the score 'board'
-        score = Score(user=self.user, pair_size=self.len(pairs) % 2, date=date.today(), won=won,
+        score = Score(user=self.user, num_pairs=self.num_pairs, date=date.today(), won=won,
                       guesses=self.attempts_allowed - self.attempts_remaining)
         score.put()
 
@@ -60,14 +93,14 @@ class Game(ndb.Model):
 class Score(ndb.Model):
     """Score object"""
     user = ndb.KeyProperty(required=True, kind='User')
-    pair_size = ndb.IntegerProperty(required=True)
+    num_pairs = ndb.IntegerProperty(required=True)
     date = ndb.DateProperty(required=True)
     won = ndb.BooleanProperty(required=True)
     guesses = ndb.IntegerProperty(required=True)
 
     def to_form(self):
         return ScoreForm(user_name=self.user.get().name, won=self.won,
-                         date=str(self.date), guesses=self.guesses, pair_size=self.pair_size)
+                         date=str(self.date), guesses=self.guesses, num_pairs=self.num_pairs)
 
 
 class GameForm(messages.Message):
@@ -89,7 +122,7 @@ class NewGameForm(messages.Message):
 class MakeGuessForm(messages.Message):
     """Used to make a guess in an existing game"""
     guess1 = messages.IntegerField(1, required=True)
-    guess2 = messages.Integerfield(2, required=True)
+    guess2 = messages.IntegerField(2, required=True)
 
 
 class ScoreForm(messages.Message):
@@ -98,7 +131,7 @@ class ScoreForm(messages.Message):
     date = messages.StringField(2, required=True)
     won = messages.BooleanField(3, required=True)
     guesses = messages.IntegerField(4, required=True)
-    pair_size = messages.IntegerField(5, required=True)
+    num_pairs = messages.IntegerField(5, required=True)
 
 
 class ScoreForms(messages.Message):

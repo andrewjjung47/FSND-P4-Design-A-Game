@@ -27,8 +27,8 @@ USER_REQUEST = endpoints.ResourceContainer(user_name=messages.StringField(1),
 
 MEMCACHE_MOVES_REMAINING = 'MOVES_REMAINING'
 
-@endpoints.api(name='guess_a_number', version='v1')
-class GuessANumberApi(remote.Service):
+@endpoints.api(name='concentration_game', version='v1')
+class ConcentrationGameApi(remote.Service):
     """Game API"""
     @endpoints.method(request_message=USER_REQUEST,
                       response_message=StringMessage,
@@ -57,17 +57,15 @@ class GuessANumberApi(remote.Service):
             raise endpoints.NotFoundException(
                     'A User with that name does not exist!')
         try:
-            game = Game.new_game(user.key, request.min,
-                                 request.max, request.attempts)
+            game = Game.new_game(user.key, request.num_pairs, request.attempts)
         except ValueError:
-            raise endpoints.BadRequestException('Maximum must be greater '
-                                                'than minimum!')
+            raise endpoints.BadRequestException('Number of the pairs should be greater than 1')
 
         # Use a task queue to update the average attempts remaining.
         # This operation is not needed to complete the creation of a new game
         # so it is performed out of sequence.
         taskqueue.add(url='/tasks/cache_average_attempts')
-        return game.to_form('Good luck playing Guess a Number!')
+        return game.to_form('Good luck playing Concentration game!')
 
     @endpoints.method(request_message=GET_GAME_REQUEST,
                       response_message=GameForm,
@@ -78,37 +76,29 @@ class GuessANumberApi(remote.Service):
         """Return the current game state."""
         game = get_by_urlsafe(request.urlsafe_game_key, Game)
         if game:
-            return game.to_form('Time to make a move!')
+            return game.to_form('Time to start guessing the pairs!')
         else:
             raise endpoints.NotFoundException('Game not found!')
 
-    @endpoints.method(request_message=MAKE_MOVE_REQUEST,
+    @endpoints.method(request_message=MAKE_GUESS_REQUEST,
                       response_message=GameForm,
                       path='game/{urlsafe_game_key}',
-                      name='make_move',
+                      name='make_guess',
                       http_method='PUT')
-    def make_move(self, request):
-        """Makes a move. Returns a game state with message"""
+    def make_guess(self, request):
+        """Makes a guess. Returns a game state with message"""
         game = get_by_urlsafe(request.urlsafe_game_key, Game)
         if game.game_over:
             return game.to_form('Game already over!')
 
-        game.attempts_remaining -= 1
-        if request.guess == game.target:
-            game.end_game(True)
-            return game.to_form('You win!')
+        if (request.guess1 < 0 or request.guess1 > game.num_pairs * 2 - 1) or\
+                (request.guess2 < 0 or request.guess2 > game.num_pairs * 2 -1):
+            return game.to_form('Card numbers needs to be between 0 and %s' % (2 * game.num_pairs - 1)) 
 
-        if request.guess < game.target:
-            msg = 'Too low!'
-        else:
-            msg = 'Too high!'
+        if request.guess1 == request.guess2:
+            return game.to_form('Two guesses need to be for different cards')
 
-        if game.attempts_remaining < 1:
-            game.end_game(False)
-            return game.to_form(msg + ' Game over!')
-        else:
-            game.put()
-            return game.to_form(msg)
+        return game.make_guess(request.guess1, request.guess2)
 
     @endpoints.method(response_message=ScoreForms,
                       path='scores',
@@ -153,4 +143,4 @@ class GuessANumberApi(remote.Service):
                          'The average moves remaining is {:.2f}'.format(average))
 
 
-api = endpoints.api_server([GuessANumberApi])
+api = endpoints.api_server([ConcentrationGameApi])
