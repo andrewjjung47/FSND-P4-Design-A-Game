@@ -39,7 +39,15 @@ class Game(ndb.Model):
         game.put()
         return game
 
-    def to_form(self, message):
+    def card_layout(self):
+        # Represent remaining cards as * and guessed cards as G
+        layout = []
+        for card in self.pairs:
+            layout.append('G' if card == -1 else '*')
+        # Represent the layout in string
+        return '[' + ', '.join(layout) + ']'
+
+    def to_form(self, message=""):
         """Returns a GameForm representation of the Game"""
         form = GameForm()
         form.urlsafe_key = self.key.urlsafe()
@@ -47,6 +55,7 @@ class Game(ndb.Model):
         form.attempts_remaining = self.attempts_remaining
         form.game_over = self.game_over
         form.message = message
+        form.card_layout = self.card_layout()
         return form
 
     def make_guess(self, guess1, guess2):
@@ -59,13 +68,15 @@ class Game(ndb.Model):
         self.attempts_remaining -= 1
 
         if number1 != number2:
-            return self.to_form('Wrong guess. Number for card {0} is {1} and for card {2} is {3}'.format(guess1,
-                number1, guess2, number2))
+            msg = 'Wrong guess. Number for card {0} is {1} and for card {2} is {3}'.format(guess1,
+                number1, guess2, number2)
+        else:
+            # Mark correctly guessed pair with -1
+            self.guessed_pairs += 1
+            self.pairs[guess1] = -1
+            self.pairs[guess2] = -1
 
-        # Mark correctly guessed pair with -1
-        self.guessed_pairs += 1
-        self.pairs[guess1] = -1
-        self.pairs[guess2] = -1
+            msg = 'Correct guess! You have %s pairs remaining.' % (self.num_pairs - self.guessed_pairs)
 
         if self.guessed_pairs == self.num_pairs:
             self.end_game(True)
@@ -73,8 +84,6 @@ class Game(ndb.Model):
         elif self.attempts_remaining == 0:
             self.end_game(False)
             msg = 'You ran out of guesses. Game over!'
-        else:
-            msg = 'Correct guess! You have %s pairs remaining.' % (self.num_pairs - self.guessed_pairs)
 
         self.put()
         return self.to_form(msg)
@@ -110,6 +119,11 @@ class GameForm(messages.Message):
     game_over = messages.BooleanField(3, required=True)
     message = messages.StringField(4, required=True)
     user_name = messages.StringField(5, required=True)
+    card_layout = messages.StringField(6, required=True)
+
+class GameForms(messages.Message):
+    """Return multiple GameForm"""
+    items = messages.MessageField(GameForm, 1, repeated=True)
 
 
 class NewGameForm(messages.Message):

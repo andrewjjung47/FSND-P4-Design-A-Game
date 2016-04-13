@@ -12,8 +12,8 @@ from google.appengine.api import memcache
 from google.appengine.api import taskqueue
 
 from models import User, Game, Score
-from models import StringMessage, NewGameForm, GameForm, MakeGuessForm,\
-    ScoreForms
+from models import StringMessage, NewGameForm, GameForm, GameForms,\
+    MakeGuessForm, ScoreForms
 from utils import get_by_urlsafe
 
 NEW_GAME_REQUEST = endpoints.ResourceContainer(NewGameForm)
@@ -79,6 +79,38 @@ class ConcentrationGameApi(remote.Service):
             return game.to_form('Time to start guessing the pairs!')
         else:
             raise endpoints.NotFoundException('Game not found!')
+    
+    @endpoints.method(request_message=USER_REQUEST,
+                      response_message=GameForms,
+                      path='game/user/{user_name}',
+                      name='get_user_games',
+                      http_method='GET')
+    def get_user_games(self, request):
+        """Returns all of an individual User's games"""
+        user = User.query(User.name == request.user_name).get()
+        if not user:
+            raise endpoints.NotFoundException(
+                    'A User with that name does not exist!')
+        games = Game.query(Game.user == user.key and Game.game_over == False)
+        return GameForms(items=[game.to_form() for game in games])
+    
+    @endpoints.method(request_message=GET_GAME_REQUEST,
+                      response_message=GameForm,
+                      path='game/{urlsafe_game_key}/cancel',
+                      name='cancel_game',
+                      http_method='POST')
+    def cancel_game(self, request):
+        """Cancel the requested game."""
+        game = get_by_urlsafe(request.urlsafe_game_key, Game)
+
+        if not game:
+            raise endpoints.NotFoundException('Game not found!')
+        if game.game_over:
+            return game.to_form('Cannot deleted finished game.')
+
+        game_form = game.to_form('This game is deleted.')
+        game.key.delete()
+        return game_form 
 
     @endpoints.method(request_message=MAKE_GUESS_REQUEST,
                       response_message=GameForm,

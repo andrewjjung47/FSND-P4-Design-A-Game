@@ -6,7 +6,7 @@ import logging
 
 import webapp2
 from google.appengine.api import mail, app_identity
-from api import GuessANumberApi
+from api import ConcentrationGameApi
 
 from models import User
 
