@@ -1,4 +1,4 @@
-#Full Stack Nanodegree Project 4 Refresh
+#Full Stack Nanodegree Project 4: Concentration Game
 
 ## Set-Up Instructions:
 1.  Update the value of application in app.yaml to the app ID you have registered
@@ -11,13 +11,7 @@
  
  
 ##Game Description:
-Guess a number is a simple guessing game. Each game begins with a random 'target'
-number between the minimum and maximum values provided, and a maximum number of
-'attempts'. 'Guesses' are sent to the `make_move` endpoint which will reply
-with either: 'too low', 'too high', 'you win', or 'game over' (if the maximum
-number of attempts is reached).
-Many different Guess a Number games can be played by many different Users at any
-given time. Each game can be retrieved or played by using the path parameter
+Concentration game, which is also commonly known as card matching game, is a guessing game to match a pair of cards among a set of cards laid face down. Each game begins with a set of cards (often 52 is used as the standard), and a player can pick two cards to flip. If the flipped cards are a pair, then the pair remains face up, but if not, the two cards are flipped back. The game is won when all the cards are guessed correctly and face up. Maximum number of attempts can be set and if the player fails to flip all the cards within the limit, the game will be lost. For this app, only a single player plays the game and tries to reach a good score, which is defined by a ratio of how many attempts are left over how many attempts are allowed. 'Guesses' are sent to the `make_guess` endpoint which will reply with whether the guess was correct or not. If not, the endpoint will tell what the numbers of each cards are. Each game can be retrieved or played by using the path parameter
 `urlsafe_game_key`.
 
 ##Files Included:
@@ -26,7 +20,7 @@ given time. Each game can be retrieved or played by using the path parameter
  - cron.yaml: Cronjob configuration.
  - main.py: Handler for taskqueue handler.
  - models.py: Entity and message definitions including helper methods.
- - utils.py: Helper function for retrieving ndb.Models by urlsafe Key string.
+ - utils.py: Helper function for retrieving ndb.Models by urlsafe Key string and generating random pairs.
 
 ##Endpoints Included:
  - **create_user**
@@ -54,12 +48,12 @@ given time. Each game can be retrieved or played by using the path parameter
     - Returns: GameForm with current game state.
     - Description: Returns the current state of a game.
     
- - **make_move**
+ - **make_guess**
     - Path: 'game/{urlsafe_game_key}'
     - Method: PUT
     - Parameters: urlsafe_game_key, guess
     - Returns: GameForm with new game state.
-    - Description: Accepts a 'guess' and returns the updated state of the game.
+    - Description: Accepts two integers 'guess1' and 'guess2' and returns the updated state of the game.
     If this causes a game to end, a corresponding Score entity will be created.
     
  - **get_scores**
