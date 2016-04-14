@@ -10,10 +10,12 @@ import endpoints
 from protorpc import remote, messages
 from google.appengine.api import memcache
 from google.appengine.api import taskqueue
+from google.appengine.ext import ndb
 
-from models import User, Game, Score
+from models import std_num_pairs
+from models import User, Game, Score, AverageScore
 from models import StringMessage, NewGameForm, GameForm, GameForms,\
-    MakeGuessForm, ScoreForms
+    MakeGuessForm, ScoreForms, UserRankingForm, GameHistoryForm
 from utils import get_by_urlsafe
 
 NEW_GAME_REQUEST = endpoints.ResourceContainer(NewGameForm)
@@ -24,6 +26,9 @@ MAKE_GUESS_REQUEST = endpoints.ResourceContainer(
     urlsafe_game_key=messages.StringField(1),)
 USER_REQUEST = endpoints.ResourceContainer(user_name=messages.StringField(1),
                                            email=messages.StringField(2))
+HIGH_SCORES_REQUEST= endpoints.ResourceContainer(
+        number_of_results=messages.IntegerField(1),
+        )
 
 MEMCACHE_MOVES_REMAINING = 'MOVES_REMAINING'
 
@@ -56,8 +61,10 @@ class ConcentrationGameApi(remote.Service):
         if not user:
             raise endpoints.NotFoundException(
                     'A User with that name does not exist!')
+        if request.attempts < std_num_pairs * 2:
+            raise endpoints.BadRequestException('Number of attempts should be at least the number of cards, 52')
         try:
-            game = Game.new_game(user.key, request.num_pairs, request.attempts)
+            game = Game.new_game(user.key, request.attempts)
         except ValueError:
             raise endpoints.BadRequestException('Number of the pairs should be greater than 1')
 
@@ -123,8 +130,8 @@ class ConcentrationGameApi(remote.Service):
         if game.game_over:
             return game.to_form('Game already over!')
 
-        if (request.guess1 < 0 or request.guess1 > game.num_pairs * 2 - 1) or\
-                (request.guess2 < 0 or request.guess2 > game.num_pairs * 2 -1):
+        if (request.guess1 < 0 or request.guess1 > std_num_pairs * 2 - 1) or\
+                (request.guess2 < 0 or request.guess2 > std_num_pairs * 2 -1):
             return game.to_form('Card numbers needs to be between 0 and %s' % (2 * game.num_pairs - 1)) 
 
         if request.guess1 == request.guess2:
@@ -153,6 +160,48 @@ class ConcentrationGameApi(remote.Service):
                     'A User with that name does not exist!')
         scores = Score.query(Score.user == user.key)
         return ScoreForms(items=[score.to_form() for score in scores])
+
+    @endpoints.method(request_message=HIGH_SCORES_REQUEST,
+                      response_message=ScoreForms,
+                      path='scores/highest',
+                      name='get_high_scores',
+                      http_method='GET')
+    def get_high_scores(self, request):
+        """Returns high scores. Number of scores returned is limited by an optional
+        parameter, number_of_results"""
+        scores = Score.query(Score.won == True).order(-Score.score).fetch(limit=request.number_of_results)
+        
+        return ScoreForms(items=[score.to_form() for score in scores])
+
+    @endpoints.method(request_message=USER_REQUEST,
+                      response_message=UserRankingForm,
+                      path='user/{user_name}/rank',
+                      name='get_user_rankings',
+                      http_method='GET')
+    def get_user_rankings(self, request):
+        """Get a user's ranking based on average score"""
+        user = User.query(User.name == request.user_name).get()
+        if not user:
+            raise endpoints.NotFoundException(
+                    'A User with that name does not exist!')
+
+        avg_score = AverageScore.query(AverageScore.user == user.key).get()
+        rank = AverageScore.query(AverageScore.avg_score > avg_score.avg_score).count() + 1
+        
+        return UserRankingForm(user_name=request.user_name, rank=rank, score=avg_score.avg_score)
+
+    @endpoints.method(request_message=GET_GAME_REQUEST,
+                      response_message=GameHistoryForm,
+                      path='game/{urlsafe_game_key}/history',
+                      name='get_game_history',
+                      http_method='GET')
+    def get_game_history(self, request):
+        """Get a game's history"""
+        game = get_by_urlsafe(request.urlsafe_game_key, Game)
+                
+        return GameHistoryForm(urlsafe_key=request.urlsafe_game_key, history=game.history)
+
+
 
     @endpoints.method(response_message=StringMessage,
                       path='games/average_attempts',
