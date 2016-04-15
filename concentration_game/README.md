@@ -84,23 +84,30 @@ Concentration game, which is also commonly known as card matching game, is a gue
     - Stores unique user_name and (optional) email address.
     
  - **Game**
-    - Stores unique game states. Associated with User model via KeyProperty.
+    - Stores unique game states and guess history. Associated with User model via KeyProperty.
     
  - **Score**
-    - Records completed games. Associated with Users model via KeyProperty.
+    - Records completed games. Has a property `score` which is used to compare games with different number of attempts. It is calculated by number of remaining gusses divided by total attempts allowed. Associated with Users model via KeyProperty.
+    
+ - **AverageScore**
+    - Records average score of a player. It is used to compare performance of different players.
     
 ##Forms Included:
  - **GameForm**
     - Representation of a Game's state (urlsafe_key, attempts_remaining,
-    game_over flag, message, user_name).
+    game_over flag, message, user_name, card_layout).
+ - **GameHistoryForm**
+    - Shows history of guesses of a Game (urlsafe_key, history).
  - **NewGameForm**
-    - Used to create a new game (user_name, min, max, attempts)
- - **MakeMoveForm**
-    - Inbound make move form (guess).
+    - Used to create a new game (user_name, attempts).
+ - **MakeGuessForm**
+    - Inbound form for making guess for a pair of cards (guess1, guess2).
  - **ScoreForm**
     - Representation of a completed game's Score (user_name, date, won flag,
-    guesses).
+    guesses, score).
  - **ScoreForms**
     - Multiple ScoreForm container.
+ - **UserRankingForm**
+    - Shows a user's average score and rank (user_name, rank, score).
  - **StringMessage**
     - General purpose String container.
