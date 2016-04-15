@@ -10,7 +10,7 @@ from google.appengine.ext import ndb
 from utils import generate_random_pairs
 
 # Make number of pairs as standard 26 pairs for ease of scoring and ranking purposes.
-std_num_pairs = 3
+std_num_pairs = 26
 
 class User(ndb.Model):
     """User profile"""

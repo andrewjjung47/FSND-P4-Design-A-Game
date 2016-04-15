@@ -61,7 +61,7 @@ class ConcentrationGameApi(remote.Service):
         if not user:
             raise endpoints.NotFoundException(
                     'A User with that name does not exist!')
-        if request.attempts < std_num_pairs * 2:
+        if request.attempts < std_num_pairs:
             raise endpoints.BadRequestException('Number of attempts should be at least the number of cards, 52')
         try:
             game = Game.new_game(user.key, request.attempts)
@@ -71,7 +71,7 @@ class ConcentrationGameApi(remote.Service):
         # Use a task queue to update the average attempts remaining.
         # This operation is not needed to complete the creation of a new game
         # so it is performed out of sequence.
-        taskqueue.add(url='/tasks/cache_average_attempts')
+        # taskqueue.add(url='/tasks/cache_average_attempts')
         return game.to_form('Good luck playing Concentration game!')
 
     @endpoints.method(request_message=GET_GAME_REQUEST,
@@ -105,7 +105,7 @@ class ConcentrationGameApi(remote.Service):
                       response_message=GameForm,
                       path='game/{urlsafe_game_key}/cancel',
                       name='cancel_game',
-                      http_method='POST')
+                      http_method='DELETE')
     def cancel_game(self, request):
         """Cancel the requested game."""
         game = get_by_urlsafe(request.urlsafe_game_key, Game)
@@ -203,25 +203,25 @@ class ConcentrationGameApi(remote.Service):
 
 
 
-    @endpoints.method(response_message=StringMessage,
-                      path='games/average_attempts',
-                      name='get_average_attempts_remaining',
-                      http_method='GET')
-    def get_average_attempts(self, request):
-        """Get the cached average moves remaining"""
-        return StringMessage(message=memcache.get(MEMCACHE_MOVES_REMAINING) or '')
-
-    @staticmethod
-    def _cache_average_attempts():
-        """Populates memcache with the average moves remaining of Games"""
-        games = Game.query(Game.game_over == False).fetch()
-        if games:
-            count = len(games)
-            total_attempts_remaining = sum([game.attempts_remaining
-                                        for game in games])
-            average = float(total_attempts_remaining)/count
-            memcache.set(MEMCACHE_MOVES_REMAINING,
-                         'The average moves remaining is {:.2f}'.format(average))
+#    @endpoints.method(response_message=StringMessage,
+#                      path='games/average_attempts',
+#                      name='get_average_attempts_remaining',
+#                      http_method='GET')
+#    def get_average_attempts(self, request):
+#        """Get the cached average moves remaining"""
+#        return StringMessage(message=memcache.get(MEMCACHE_MOVES_REMAINING) or '')
+#
+#    @staticmethod
+#    def _cache_average_attempts():
+#        """Populates memcache with the average moves remaining of Games"""
+#        games = Game.query(Game.game_over == False).fetch()
+#        if games:
+#            count = len(games)
+#            total_attempts_remaining = sum([game.attempts_remaining
+#                                        for game in games])
+#            average = float(total_attempts_remaining)/count
+#            memcache.set(MEMCACHE_MOVES_REMAINING,
+#                         'The average moves remaining is {:.2f}'.format(average))
 
 
 api = endpoints.api_server([ConcentrationGameApi])
