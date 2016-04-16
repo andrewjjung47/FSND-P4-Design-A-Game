@@ -1,0 +1,36 @@
+Udacity Full-stack Nanodegree Project 4 Reflection
+
+Author: Andrew Jung
+
+
+For this project, I chose to develop concentration game. Although in real life this game is
+often player with multiple players, for this project I chose this game to be a single player
+game and users comptete for the best scores. 
+
+Unlike in guessing game, Game model in concentration game need to store information of the number
+for each card. I chose an integer array to represent a set of cards and each element represents
+number of a card. When a pair is guessed correctly, the two elements in a pair are each given a 
+value of -1 to represent that these two elements (cards) are already guessed correctly. 
+
+Also, I added 'gussed_pairs', 'attempts_allowed', and 'attempts_remaining' properties to the
+Game model. These properties are used to track how many pairs have already been gussed correctly 
+and how many more attempts a user has.
+
+I put the main game logic into a method of Game model, 'make_guess'. 
+
+For Score model, I added 'gussess' and 'score' properties to store number of gussess used and 
+the score for a game which is calculated as number of attempts remaining divided by total number
+of attempts allowed. 
+
+To compare performance of players, I used average score. Everytime a Score is created, this
+average score is updated as well. 
+
+Originally, I desinged games can have different number of pairs. However, this made it very
+difficult to compare performance. If this project was a multi-player game, performance will be 
+based on win-loss ratio, so it would have been possible to allow players to change number of 
+pairs for a game. Instead, since I made the game a single player, I had to fix the number of pairs
+in a game to a set number, which I chose as 26 pairs. 
+
+Unlike in many other platforms, ndb in Google App Engine didn't seem to provide aggregate 
+functions, so I had to introduce AverageScore model to store average score of a player. If 
+this app was built in another platform, I would just calculate average score on the fly. 
